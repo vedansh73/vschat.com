@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>TeleChat — Servers, Bots & Moderation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
+    html, body { background: #0e1621; color: #f5f5f5; height: 100dvh; width: 100%; display: flex; overflow: hidden; }
+
+    /* Left Sidebar */
+    .sidebar {
+      width: 340px; max-width: 100vw; background: #17212b; border-right: 1px solid #0b1118;
+      display: flex; flex-direction: column; flex-shrink: 0; height: 100%;
+    }
+    .side-header {
+      padding: 12px 14px; display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #0e1621; gap: 8px; flex-wrap: wrap;
+    }
+    .app-title { font-size: 17px; font-weight: 800; color: #5eb5f7; }
+    .header-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .search-box { padding: 10px 14px; }
+    .search-box input {
+      width: 100%; padding: 10px 14px; border-radius: 20px; border: none;
+      background: #242f3d; color: #fff; font-size: 14px; outline: none;
+    }
+
+    .room-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .room-item {
+      display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+      cursor: pointer; transition: 0.15s; border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .room-item:hover { background: #202b36; }
+    .room-item.active { background: #2b5278; }
+
+    .avatar {
+      width: 42px; height: 42px; border-radius: 50%; background: #3390ec;
+      display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px;
+      flex-shrink: 0; object-fit: cover; overflow: hidden;
+    }
+    .avatar-sm {
+      width: 28px; height: 28px; border-radius: 50%; background: #3390ec;
+      display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px;
+      flex-shrink: 0; object-fit: cover;
+    }
+
+    .room-meta { min-width: 0; flex: 1; }
+    .room-name { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .room-sub { font-size: 12px; color: #8c9aa8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .badge { font-size: 10px; background: #242f3d; color: #64b5f6; padding: 2px 6px; border-radius: 6px; }
+    .badge-owner { font-size: 10px; background: #1e3a5f; color: #93c5fd; padding: 2px 6px; border-radius: 6px; }
+
+    .user-footer {
+      padding: 10px 12px; background: #131c26; border-top: 1px solid #0e1621;
+      display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap;
+    }
+    .user-info { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+    .user-info span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Right Chat Area */
+    .chat-area {
+      flex: 1; display: flex; flex-direction: column; background: #0e1621; position: relative; min-width: 0; height: 100%;
+    }
+    .chat-header {
+      padding: 10px 14px; background: #17212b; border-bottom: 1px solid #0b1118;
+      display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .chat-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+    .chat-header-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .messages-box {
+      flex: 1; padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .msg-row { display: flex; align-items: flex-end; gap: 8px; max-width: 84%; }
+    .msg-row.in { align-self: flex-start; }
+    .msg-row.out { align-self: flex-end; flex-direction: row-reverse; }
+
+    .msg {
+      padding: 9px 13px; border-radius: 12px; font-size: 14px; line-height: 1.4;
+      word-wrap: break-word; min-width: 100px;
+    }
+    .msg.in { background: #182533; border-bottom-left-radius: 3px; }
+    .msg.out { background: #2b5278; border-bottom-right-radius: 3px; }
+    .msg-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .msg-sender { font-size: 12px; font-weight: 700; color: #64b5f6; }
+    .msg-del-btn {
+      background: transparent; color: #fca5a5; padding: 2px 6px; font-size: 11px; border-radius: 6px;
+    }
+    .msg-del-btn:hover { background: rgba(239, 68, 68, 0.2); }
+    .msg-media { max-width: 100%; max-height: 260px; border-radius: 8px; margin: 4px 0; display: block; }
+    .msg-time { font-size: 10px; color: #8ea4b8; text-align: right; margin-top: 4px; }
+
+    /* Input Bar */
+    .input-bar {
+      padding: 10px 12px; background: #17212b; display: flex; gap: 8px; align-items: center;
+      border-top: 1px solid #0b1118;
+    }
+    .input-bar input[type="text"] {
+      flex: 1; min-width: 0; padding: 11px 14px; border-radius: 22px; border: none;
+      background: #242f3d; color: #fff; font-size: 14px; outline: none;
+    }
+    .notice-bar {
+      padding: 12px 16px; background: #17212b; color: #94a3b8;
+      text-align: center; font-size: 13px; border-top: 1px solid #0b1118;
+    }
+
+    button, .attach-btn {
+      padding: 8px 12px; border-radius: 16px; border: none; font-weight: 600;
+      cursor: pointer; font-size: 12px; transition: 0.15s; display: inline-flex;
+      align-items: center; justify-content: center; white-space: nowrap; min-height: 34px;
+    }
+    .btn-blue { background: #3390ec; color: #fff; }
+    .btn-blue:hover { background: #267cd1; }
+    .btn-dark, .attach-btn { background: #242f3d; color: #cbd5e1; }
+    .btn-dark:hover, .attach-btn:hover { background: #2f3d4f; }
+    .btn-danger { background: #7f1d1d; color: #fecaca; }
+    .btn-danger:hover { background: #991b1b; }
+    .btn-warn { background: #78350f; color: #fde68a; }
+    .btn-warn:hover { background: #92400e; }
+
+    .back-btn { display: none; }
+    @media (max-width: 768px) {
+      .back-btn { display: inline-flex; }
+      .sidebar { width: 100%; }
+      .chat-area { display: none; width: 100%; }
+      body.chat-open .sidebar { display: none; }
+      body.chat-open .chat-area { display: flex; }
+      .msg-row { max-width: 92%; }
+    }
+
+    /* Modals */
+    .modal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+      justify-content: center; align-items: center; padding: 14px; z-index: 60; overflow-y: auto;
+    }
+    .modal.open { display: flex; }
+    .modal-box {
+      background: #17212b; border: 1px solid #2b5278; padding: 20px;
+      border-radius: 14px; width: 100%; max-width: 440px; max-height: 90dvh; overflow-y: auto;
+    }
+    .modal-box h3 { margin-bottom: 10px; color: #64b5f6; font-size: 17px; }
+    .modal-box input, .modal-box select, .modal-box textarea {
+      width: 100%; padding: 10px; margin: 6px 0; border-radius: 8px;
+      border: 1px solid #242f3d; background: #0e1621; color: #fff; font-size: 13px;
+    }
+    .status { font-size: 12px; color: #5eb5f7; margin-top: 8px; word-break: break-word; }
+
+    .mod-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .mod-item {
+      background: #0e1621; border: 1px solid #242f3d; border-radius: 10px;
+      padding: 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .mod-user { font-size: 12px; min-width: 0; flex: 1; }
+    .mod-btns { display: flex; gap: 5px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+
+  <!-- Left Sidebar -->
+  <aside class="sidebar">
+    <div class="side-header">
+      <div class="app-title">✈ TeleChat</div>
+      <div class="header-actions">
+        <button class="btn-dark" onclick="openBotModal()">🤖 Bots</button>
+        <button class="btn-blue" onclick="openModal('groupModal')">+ Create</button>
+      </div>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="roomSearch" placeholder="Search servers, groups or channels..." oninput="renderRooms()">
+    </div>
+
+    <div class="room-list" id="roomList"></div>
+
+    <div class="user-footer">
+      <div class="user-info">
+        <span id="footerDpWrap"></span>
+        <span id="userStatus">Guest</span>
+      </div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="btn-dark" onclick="openProfileModal()">DP & Name</button>
+        <button id="loginBtn" class="btn-blue" onclick="openModal('authModal')">Login</button>
+        <button id="logoutBtn" class="btn-dark" style="display:none;" onclick="logoutUser()">Logout</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Right Chat Area -->
+  <main class="chat-area">
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <button class="btn-dark back-btn" onclick="document.body.classList.remove('chat-open')">←</button>
+        <div style="min-width:0;">
+          <div id="activeRoomTitle" style="font-weight:700; font-size:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">General Public Chat</div>
+          <div id="activeRoomDesc" style="font-size:12px; color:#8c9aa8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Open group for everyone</div>
+        </div>
+      </div>
+      <div class="chat-header-actions">
+        <button id="modBtn" class="btn-dark" style="display:none;" onclick="openModModal()">🛡 Mod & Access</button>
+        <button id="deleteRoomBtn" class="btn-danger" style="display:none;" onclick="deleteCurrentRoom()">🗑 Delete</button>
+      </div>
+    </div>
+
+    <div class="messages-box" id="messagesBox">
+      <p style="color:#8c9aa8; text-align:center; margin-top:20px;">Loading messages...</p>
+    </div>
+
+    <div id="uploadBanner" style="display:none; padding:6px 16px; background:#1e2c3a; font-size:12px; color:#64b5f6;">
+      Uploading media from gallery...
+    </div>
+
+    <div id="statusNoticeBar" class="notice-bar" style="display:none;"></div>
+
+    <form class="input-bar" id="chatInputBar" onsubmit="sendMessage(event)">
+      <label class="attach-btn" title="Send photo or video">
+        📎
+        <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" onchange="sendMediaFile()">
+      </label>
+      <input type="text" id="msgInput" placeholder="Write a message or /command..." autocomplete="off">
+      <button type="submit" class="btn-blue">Send ➤</button>
+    </form>
+  </main>
+
+  <!-- Profile Modal -->
+  <div class="modal" id="profileModal">
+    <div class="modal-box">
+      <h3>Set Username & DP</h3>
+      <input type="text" id="editUsername" placeholder="Username (e.g., @vedansh)">
+      <input type="text" id="editDpUrl" placeholder="DP Image URL (or pick from gallery)">
+      <label class="btn-dark" style="width:100%; margin:6px 0; padding:9px;">
+        Choose DP From Gallery
+        <input type="file" id="dpFileInput" accept="image/*" style="display:none;" onchange="uploadDpFromGallery()">
+      </label>
+      <button class="btn-blue" style="width:100%; margin-top:6px;" onclick="saveProfile()">Save Profile</button>
+      <button class="btn-dark" style="width:100%; margin-top:6px;" onclick="closeModal('profileModal')">Close</button>
+      <p class="status" id="profileStatus"></p>
+    </div>
+  </div>
+
+  <!-- Optional Auth Login Modal -->
+  <div class="modal" id="authModal">
+    <div class="modal-box">
+      <h3>Email Link Sign-In</h3>
+      <p style="font-size:12px; color:#8c9aa8; margin-bottom:6px;">Sign in to own servers/channels, control access, and use moderation.</p>
+      <input type="text" id="authName" placeholder="Your Username">
+      <input type="email" id="authEmail" placeholder="Your Email Address">
+      <button class="btn-blue" style="width:100%; margin-top:8px;" onclick="sendSignInLink()">Send Verification Link</button>
+      <button class="btn-dark" style="width:100%; margin-top:6px;" onclick="closeModal('authModal')">Close</button>
+      <p class="status" id="authStatus"></p>
+    </div>
+  </div>
+
+  <!-- Create Server / Group / Channel Modal -->
+  <div class="modal" id="groupModal">
+    <div class="modal-box">
+      <h3>Create Server / Group / Channel</h3>
+      <input type="text" id="newGroupName" placeholder="Name (e.g., Dev Server, Study Group, News Channel)">
+      <input type="text" id="newGroupDesc" placeholder="Short Description">
+      <select id="newGroupType">
+        <option value="public">Public Group (Anyone can chat)</option>
+        <option value="private">Private Group / Server (Owner & invited members only)</option>
+        <option value="channel">Channel (Creator posts, everyone reads)</option>
+      </select>
+      <button class="btn-blue" style="width:100%; margin-top:8px;" onclick="createGroup()">Create</button>
+      <button class="btn-dark" style="width:100%; margin-top:6px;" onclick="closeModal('groupModal')">Cancel</button>
+      <p class="status" id="groupStatus"></p>
+    </div>
+  </div>
+
+  <!-- Owner Moderation & Access Modal -->
+  <div class="modal" id="modModal">
+    <div class="modal-box">
+      <h3>🛡 Owner Access & Moderation</h3>
+      <p style="font-size:12px; color:#8c9aa8; margin-bottom:6px;">Add allowed member email or manage active/restricted members:</p>
+      <div style="display:flex; gap:6px;">
+        <input type="email" id="modEmailInput" placeholder="member@example.com" style="margin:0;">
+        <button class="btn-blue" onclick="allowMemberEmail()">Allow</button>
+      </div>
+      <div class="mod-list" id="modMembersList"></div>
+      <button class="btn-dark" style="width:100%; margin-top:12px;" onclick="closeModal('modModal')">Close</button>
+      <p class="status" id="modStatus"></p>
+    </div>
+  </div>
+
+  <!-- Custom Bot Builder Modal -->
+  <div class="modal" id="botModal">
+    <div class="modal-box">
+      <h3>🤖 Create Your Custom Bot</h3>
+      <input type="text" id="botNameInput" placeholder="Bot Name (e.g., HelperBot)">
+      <input type="text" id="botTriggerInput" placeholder="Trigger Command (e.g., /help or !info)">
+      <textarea id="botReplyInput" rows="2" placeholder="Bot Reply Message"></textarea>
+      <input type="text" id="botTokenInput" placeholder="Optional Bot Token / Webhook URL">
+      <button class="btn-blue" style="width:100%; margin-top:6px;" onclick="createCustomBot()">Save Bot</button>
+      <div class="mod-list" id="savedBotsList"></div>
+      <button class="btn-dark" style="width:100%; margin-top:10px;" onclick="closeModal('botModal')">Close</button>
+      <p class="status" id="botStatus"></p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth, sendSignInLinkToEmail, isSignInWithEmailLink,
+      signInWithEmailLink, onAuthStateChanged, signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getFirestore, collection, addDoc, deleteDoc, doc, setDoc, getDoc, updateDoc,
+      arrayUnion, arrayRemove, query, orderBy, limit, onSnapshot
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const CLOUDINARY_CLOUD_NAME = "kgnillqy";
+    const CLOUDINARY_UPLOAD_PRESET = "mytube_preset";
+    const BOTS_STORAGE_KEY = "telechat_custom_bots_v1";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDbssJ37MopwWHijjihNYvyQyKcGd9nEW4",
+      authDomain: "website-3370c.firebaseapp.com",
+      projectId: "website-3370c",
+      storageBucket: "website-3370c.firebasestorage.app",
+      messagingSenderId: "130772213121",
+      appId: "1:130772213121:web:2c3bd8fd9be8dd684a1c80",
+      measurementId: "G-RN1GLP7RC0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const savedLocalProfile = JSON.parse(localStorage.getItem("telechat_profile") || "null") || {
+      name: "Guest",
+      dp: ""
+    };
+
+    let currentProfile = {
+      uid: "guest",
+      name: savedLocalProfile.name,
+      dp: savedLocalProfile.dp,
+      email: "",
+      isLoggedIn: false
+    };
+
+    let rooms = [{ id: "general", name: "General Public Chat", desc: "Open group for everyone", type: "public" }];
+    let activeRoomId = "general";
+    let unsubscribeChat = null;
+    let latestRoomMessages = [];
+    let customBots = JSON.parse(localStorage.getItem(BOTS_STORAGE_KEY) || "[]");
+
+    window.openModal = (id) => document.getElementById(id).classList.add("open");
+    window.closeModal = (id) => document.getElementById(id).classList.remove("open");
+
+    function renderAvatar(name, dp, sizeClass = "avatar") {
+      const initial = (name || "U")[0].toUpperCase();
+      if (dp) {
+        return `<img class="${sizeClass}" src="${dp}" alt="${name || "DP"}" onerror="this.outerHTML='<div class=\\'${sizeClass}\\'>${initial}</div>'">`;
+      }
+      return `<div class="${sizeClass}">${initial}</div>`;
+    }
+
+    function updateFooterUI() {
+      document.getElementById("userStatus").innerText = currentProfile.name;
+      document.getElementById("footerDpWrap").innerHTML = renderAvatar(currentProfile.name, currentProfile.dp, "avatar-sm");
+      document.getElementById("loginBtn").style.display = currentProfile.isLoggedIn ? "none" : "inline-flex";
+      document.getElementById("logoutBtn").style.display = currentProfile.isLoggedIn ? "inline-flex" : "none";
+    }
+
+    function isRoomOwner(room) {
+      if (!room || !currentProfile.isLoggedIn) return false;
+      const byUid = room.ownerUid && room.ownerUid === currentProfile.uid;
+      const byEmail = room.ownerEmail && currentProfile.email && room.ownerEmail.toLowerCase() === currentProfile.email.toLowerCase();
+      return Boolean(byUid || byEmail);
+    }
+
+    function isUserBanned(room) {
+      if (!room || !currentProfile.isLoggedIn || !currentProfile.email) return false;
+      return Array.isArray(room.banned) && room.banned.includes(currentProfile.email.toLowerCase());
+    }
+
+    function isUserMuted(room) {
+      if (!room || !currentProfile.isLoggedIn || !currentProfile.email) return false;
+      const mutedMap = room.muted || {};
+      const until = mutedMap[currentProfile.email.toLowerCase()];
+      return typeof until === "number" && until > Date.now();
+    }
+
+    function hasRoomAccess(room) {
+      if (!room || room.id === "general" || room.type === "public" || room.type === "channel") return true;
+      if (isRoomOwner(room)) return true;
+      if (!currentProfile.isLoggedIn || !currentProfile.email) return false;
+      const email = currentProfile.email.toLowerCase();
+      if (Array.isArray(room.banned) && room.banned.includes(email)) return false;
+      return Array.isArray(room.allowedMembers) && room.allowedMembers.includes(email);
+    }
+
+    function canPostInRoom(room) {
+      if (!room) return true;
+      if (isRoomOwner(room)) return true;
+      if (isUserBanned(room) || isUserMuted(room)) return false;
+      if (room.type === "channel") return false;
+      if (room.type === "private") return hasRoomAccess(room);
+      return true;
+    }
+
+    window.openProfileModal = () => {
+      document.getElementById("editUsername").value = currentProfile.name === "Guest" ? "" : currentProfile.name;
+      document.getElementById("editDpUrl").value = currentProfile.dp || "";
+      document.getElementById("profileStatus").innerText = "";
+      openModal("profileModal");
+    };
+
+    async function uploadToCloudinary(file, resourceType = "auto") {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`, {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+      if (!data.secure_url) throw new Error(data.error?.message || "Upload failed");
+      return data.secure_url;
+    }
+
+    window.uploadDpFromGallery = async () => {
+      const file = document.getElementById("dpFileInput").files[0];
+      if (!file) return;
+      const status = document.getElementById("profileStatus");
+      status.innerText = "Uploading DP...";
+      try {
+        const url = await uploadToCloudinary(file, "image");
+        document.getElementById("editDpUrl").value = url;
+        status.innerText = "DP uploaded! Click Save Profile.";
+      } catch (e) {
+        status.innerText = "Error: " + e.message;
+      }
+    };
+
+    window.saveProfile = async () => {
+      const name = document.getElementById("editUsername").value.trim() || "Member";
+      const dp = document.getElementById("editDpUrl").value.trim();
+      const status = document.getElementById("profileStatus");
+
+      currentProfile.name = name;
+      currentProfile.dp = dp;
+      localStorage.setItem("telechat_profile", JSON.stringify({ name, dp }));
+
+      if (currentProfile.isLoggedIn && currentProfile.uid !== "guest") {
+        await setDoc(doc(db, "users", currentProfile.uid), { name, dp }, { merge: true });
+      }
+
+      updateFooterUI();
+      status.innerText = "Saved!";
+      setTimeout(() => closeModal("profileModal"), 350);
+    };
+
+    window.sendSignInLink = async () => {
+      const name = document.getElementById("authName").value.trim();
+      const email = document.getElementById("authEmail").value.trim().toLowerCase();
+      const status = document.getElementById("authStatus");
+      if (!name || !email) return (status.innerText = "Enter both username and email.");
+
+      try {
+        await sendSignInLinkToEmail(auth, email, {
+          url: window.location.origin + window.location.pathname,
+          handleCodeInApp: true
+        });
+        localStorage.setItem("pendingEmail", email);
+        localStorage.setItem("pendingName", name);
+        status.innerText = "Sign-in link sent to your email!";
+      } catch (e) {
+        status.innerText = "Error: " + e.message;
+      }
+    };
+
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      const email = (localStorage.getItem("pendingEmail") || window.prompt("Confirm email:") || "").trim().toLowerCase();
+      const name = localStorage.getItem("pendingName") || "User";
+      if (email) {
+        signInWithEmailLink(auth, email, window.location.href).then(async (res) => {
+          await setDoc(doc(db, "users", res.user.uid), {
+            name,
+            email,
+            dp: currentProfile.dp || "",
+            verified: true
+          }, { merge: true });
+          localStorage.removeItem("pendingEmail");
+          localStorage.removeItem("pendingName");
+          window.history.replaceState({}, document.title, window.location.pathname);
+        });
+      }
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        const profile = snap.exists() ? snap.data() : {};
+        currentProfile = {
+          uid: user.uid,
+          name: profile.name || currentProfile.name || user.email.split("@")[0],
+          dp: profile.dp || currentProfile.dp || "",
+          email: (user.email || "").toLowerCase(),
+          isLoggedIn: true
+        };
+        localStorage.setItem("telechat_profile", JSON.stringify({ name: currentProfile.name, dp: currentProfile.dp }));
+      } else {
+        currentProfile = {
+          uid: "guest",
+          name: savedLocalProfile.name || "Guest",
+          dp: savedLocalProfile.dp || "",
+          email: "",
+          isLoggedIn: false
+        };
+      }
+      updateFooterUI();
+      selectRoom(activeRoomId, true);
+    });
+
+    window.logoutUser = () => signOut(auth);
+
+    onSnapshot(query(collection(db, "tg_rooms"), orderBy("createdAt", "asc")), (snap) => {
+      const customRooms = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      rooms = [
+        { id: "general", name: "General Public Chat", desc: "Open group for everyone", type: "public" },
+        ...customRooms
+      ];
+      if (!rooms.some(r => r.id === activeRoomId)) {
+        activeRoomId = "general";
+      }
+      renderRooms();
+      selectRoom(activeRoomId, true);
+    });
+
+    window.createGroup = async () => {
+      const name = document.getElementById("newGroupName").value.trim();
+      const desc = document.getElementById("newGroupDesc").value.trim() || "Server / Group";
+      const type = document.getElementById("newGroupType").value;
+      const status = document.getElementById("groupStatus");
+
+      if (!name) return (status.innerText = "Please enter a name.");
+      if (!currentProfile.isLoggedIn) {
+        return (status.innerText = "Sign in via Login first so you own and control this room.");
+      }
+
+      try {
+        const docRef = await addDoc(collection(db, "tg_rooms"), {
+          name,
+          desc,
+          type,
+          ownerUid: currentProfile.uid,
+          ownerEmail: currentProfile.email,
+          allowedMembers: [currentProfile.email],
+          banned: [],
+          muted: {},
+          createdAt: Date.now()
+        });
+        document.getElementById("newGroupName").value = "";
+        document.getElementById("newGroupDesc").value = "";
+        status.innerText = "";
+        closeModal("groupModal");
+        selectRoom(docRef.id);
+      } catch (e) {
+        status.innerText = "Error: " + e.message;
+      }
+    };
+
+    window.deleteCurrentRoom = async () => {
+      const room = rooms.find(r => r.id === activeRoomId);
+      if (!room || room.id === "general" || !isRoomOwner(room)) return;
+      if (!confirm(`Delete "${room.name}" permanently?`)) return;
+
+      await deleteDoc(doc(db, "tg_rooms", room.id));
+      activeRoomId = "general";
+      selectRoom("general");
+    };
+
+    window.openModModal = () => {
+      const room = rooms.find(r => r.id === activeRoomId);
+      if (!room || !isRoomOwner(room)) return;
+      document.getElementById("modStatus").innerText = "";
+      renderModList(room);
+      openModal("modModal");
+    };
+
+    function renderModList(room) {
+      const listEl = document.getElementById("modMembersList");
+      const allowed = Array.isArray(room.allowedMembers) ? room.allowedMembers : [];
+      const banned = Array.isArray(room.banned) ? room.banned : [];
+      const muted = room.muted || {};
+      const seenEmails = new Set([...allowed, ...banned, ...Object.keys(muted)]);
+
+      latestRoomMessages.forEach(m => {
+        if (m.senderEmail) seenEmails.add(m.senderEmail.toLowerCase());
+      });
+
+      const emails = [...seenEmails].filter(e => e && e !== (room.ownerEmail || "").toLowerCase());
+      if (!emails.length) {
+        listEl.innerHTML = `<p style="font-size:12px; color:#8c9aa8;">No other members recorded yet. Add an email above.</p>`;
+        return;
+      }
+
+      listEl.innerHTML = emails.map(email => {
+        const isBan = banned.includes(email);
+        const isMut = typeof muted[email] === "number" && muted[email] > Date.now();
+        return `
+          <div class="mod-item">
+            <div class="mod-user">
+              <div><strong>${email}</strong></div>
+              <div style="color:#8c9aa8;">${isBan ? "🚫 Banned" : isMut ? "🔇 Muted (10m)" : "✅ Active"}</div>
+            </div>
+            <div class="mod-btns">
+              <button class="btn-dark" onclick="kickMember('${email}')">Kick</button>
+              <button class="btn-warn" onclick="muteMember('${email}')">${isMut ? "Unmute" : "Mute"}</button>
+              <button class="btn-danger" onclick="banMember('${email}')">${isBan ? "Unban" : "Ban"}</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    window.allowMemberEmail = async () => {
+      const room = rooms.find(r => r.id === activeRoomId);
+      if (!room || !isRoomOwner(room)) return;
+      const email = document.getElementById("modEmailInput").value.trim().toLowerCase();
+      if (!email) return;
+
+      await updateDoc(doc(db, "tg_rooms", room.id), {
+        allowedMembers: arrayUnion(email),
+        banned: arrayRemove(email)
+      });
+      document.getElementById("modEmailInput").value = "";
+      document.getElementById("modStatus").innerText = `Access granted to ${email}`;
+    };
+
+    window.kickMember = async (email) => {
+      const room = rooms.find(r => r.id === activeRoomId);
+      if (!room || !isRoomOwner(room)) return;
+      await updateDoc(doc(db, "tg_rooms", room.id), {
+        allowedMembers: arrayRemove(email)
+      });
+      document.getElementById("modStatus").innerText = `Kicked ${email} from private access.`;
+    };
+
+    window.muteMember = async (email) => {
+      const room = rooms.find(r => r.id === activeRoomId);
+      if (!room || !isRoomOwner(room)) return;
+      const currentlyMuted = typeof (room.muted || {})[email] === "number" && room.muted[email] > Date.now();
+      await updateDoc(doc(db, "tg_rooms", room.id), {
+        [`muted.${email}`]: currentlyMuted ? 0 : Date.now() + 10 * 60 * 1000
+      });
+      document.getElementById("modStatus").innerText = currentlyMuted ? `Unmuted ${email}` : `Muted ${email} for 10 minutes`;
+    };
+
+    window.banMember = async (email) => {
+      const room = rooms.find(r => r.id === activeRoomId);
+      if (!room || !isRoomOwner(room)) return;
+      const isBan = Array.isArray(room.banned) && room.banned.includes(email);
+      await updateDoc(doc(db, "tg_rooms", room.id), {
+        banned: isBan ? arrayRemove(email) : arrayUnion(email),
+        allowedMembers: isBan ? arrayUnion(email) : arrayRemove(email)
+      });
+      document.getElementById("modStatus").innerText = isBan ? `Unbanned ${email}` : `Banned ${email}`;
+    };
+
+    window.openBotModal = () => {
+      document.getElementById("botStatus").innerText = "";
+      renderSavedBots();
+      openModal("botModal");
+    };
+
+    function renderSavedBots() {
+      const listEl = document.getElementById("savedBotsList");
+      if (!customBots.length) {
+        listEl.innerHTML = `<p style="font-size:12px; color:#8c9aa8;">No bots created yet.</p>`;
+        return;
+      }
+      listEl.innerHTML = customBots.map((b, i) => `
+        <div class="mod-item">
+          <div class="mod-user">
+            <div><strong>🤖 ${b.name}</strong> (<code>${b.trigger}</code>)</div>
+            <div style="color:#8c9aa8;">${b.reply}</div>
+          </div>
+          <div class="mod-btns">
+            <button class="btn-blue" onclick="postBotReply(${i})">Run</button>
+            <button class="btn-danger" onclick="deleteBot(${i})">×</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    window.createCustomBot = () => {
+      const name = document.getElementById("botNameInput").value.trim();
+      const trigger = document.getElementById("botTriggerInput").value.trim();
+      const reply = document.getElementById("botReplyInput").value.trim();
+      const token = document.getElementById("botTokenInput").value.trim();
+      if (!name || !trigger || !reply) {
+        return (document.getElementById("botStatus").innerText = "Fill bot name, trigger, and reply.");
+      }
+      customBots.push({ name, trigger, reply, token });
+      localStorage.setItem(BOTS_STORAGE_KEY, JSON.stringify(customBots));
+      document.getElementById("botNameInput").value = "";
+      document.getElementById("botTriggerInput").value = "";
+      document.getElementById("botReplyInput").value = "";
+      document.getElementById("botTokenInput").value = "";
+      document.getElementById("botStatus").innerText = "Bot saved!";
+      renderSavedBots();
+    };
+
+    window.deleteBot = (idx) => {
+      customBots.splice(idx, 1);
+      localStorage.setItem(BOTS_STORAGE_KEY, JSON.stringify(customBots));
+      renderSavedBots();
+    };
+
+    window.postBotReply = async (idx) => {
+      const bot = customBots[idx];
+      const room = rooms.find(r => r.id === activeRoomId) || rooms[0];
+      if (!bot || !canPostInRoom(room)) return alert("Cannot post in this room.");
+      await addDoc(collection(db, "tg_rooms", activeRoomId, "messages"), {
+        text: `🤖 [${bot.name}]: ${bot.reply}`,
+        senderName: `${bot.name} (Bot)`,
+        senderDp: "",
+        senderUid: "bot_" + idx,
+        senderEmail: currentProfile.email || "",
+        createdAt: Date.now()
+      });
+      closeModal("botModal");
+    };
+
+    window.renderRooms = () => {
+      const search = document.getElementById("roomSearch").value.toLowerCase();
+      const listEl = document.getElementById("roomList");
+      const filtered = rooms.filter(r => r.name.toLowerCase().includes(search));
+
+      listEl.innerHTML = filtered.map(r => {
+        let badges = "";
+        if (r.type === "private") badges += `<span class="badge">🔒 Private</span>`;
+        if (r.type === "channel") badges += `<span class="badge">📢 Channel</span>`;
+        if (isRoomOwner(r)) badges += `<span class="badge-owner">👑 Owner</span>`;
+
+        return `
+          <div class="room-item ${r.id === activeRoomId ? "active" : ""}" onclick="selectRoom('${r.id}')">
+            <div class="avatar">${(r.name || "R")[0].toUpperCase()}</div>
+            <div class="room-meta">
+              <div class="room-name">${r.name} ${badges}</div>
+              <div class="room-sub">${r.desc || ""}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    };
+
+    window.selectRoom = (id, silent = false) => {
+      activeRoomId = id;
+      const room = rooms.find(r => r.id === id) || rooms[0];
+      document.getElementById("activeRoomTitle").innerText = room.name;
+      document.getElementById("activeRoomDesc").innerText = room.desc || "";
+      if (!silent) document.body.classList.add("chat-open");
+
+      const owner = isRoomOwner(room);
+      document.getElementById("modBtn").style.display = owner ? "inline-flex" : "none";
+      document.getElementById("deleteRoomBtn").style.display = (owner && room.id !== "general") ? "inline-flex" : "none";
+
+      const noticeBar = document.getElementById("statusNoticeBar");
+      const inputBar = document.getElementById("chatInputBar");
+      const box = document.getElementById("messagesBox");
+
+      noticeBar.style.display = "none";
+      inputBar.style.display = "none";
+
+      if (!hasRoomAccess(room)) {
+        if (unsubscribeChat) unsubscribeChat();
+        latestRoomMessages = [];
+        box.innerHTML = `<p style="color:#f87171; text-align:center; margin-top:36px;">🔒 Access Restricted: Only the owner or allowed members can open this private room.</p>`;
+        renderRooms();
+        return;
+      }
+
+      if (isUserBanned(room)) {
+        noticeBar.style.display = "block";
+        noticeBar.innerText = "🚫 You are banned from sending messages in this room.";
+      } else if (isUserMuted(room)) {
+        noticeBar.style.display = "block";
+        noticeBar.innerText = "🔇 You are temporarily muted in this room.";
+      } else if (room.type === "channel" && !owner) {
+        noticeBar.style.display = "block";
+        noticeBar.innerText = "📢 Broadcast Channel — Only the channel creator can send messages.";
+      } else {
+        inputBar.style.display = "flex";
+      }
+
+      if (document.getElementById("modModal").classList.contains("open") && owner) {
+        renderModList(room);
+      }
+
+      renderRooms();
+      listenMessages(id, room);
+    };
+
+    function listenMessages(roomId, room) {
+      if (unsubscribeChat) unsubscribeChat();
+      const box = document.getElementById("messagesBox");
+      const q = query(collection(db, "tg_rooms", roomId, "messages"), orderBy("createdAt", "asc"), limit(120));
+
+      unsubscribeChat = onSnapshot(q, (snap) => {
+        latestRoomMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (document.getElementById("modModal").classList.contains("open") && isRoomOwner(room)) {
+          renderModList(room);
+        }
+
+        if (!latestRoomMessages.length) {
+          box.innerHTML = `<p style="color:#8c9aa8; text-align:center; margin-top:20px;">No messages yet. Say hello!</p>`;
+          return;
+        }
+
+        const canDeleteAny = isRoomOwner(room);
+        box.innerHTML = latestRoomMessages.map(m => {
+          const isMe = Boolean(
+            (currentProfile.isLoggedIn && m.senderUid && m.senderUid === currentProfile.uid) ||
+            (!currentProfile.isLoggedIn && m.senderUid === "guest" && m.senderName === currentProfile.name)
+          );
+          const canDeleteThis = isMe || canDeleteAny;
+          const time = m.createdAt
+            ? new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : "";
+
+          let mediaHtml = "";
+          if (m.mediaUrl) {
+            mediaHtml = m.mediaType === "video"
+              ? `<video class="msg-media" src="${m.mediaUrl}" controls></video>`
+              : `<img class="msg-media" src="${m.mediaUrl}" alt="media">`;
+          }
+
+          const senderName = m.senderName || "Member";
+          return `
+            <div class="msg-row ${isMe ? "out" : "in"}">
+              ${renderAvatar(senderName, m.senderDp || "", "avatar-sm")}
+              <div class="msg ${isMe ? "out" : "in"}">
+                <div class="msg-top">
+                  <span class="msg-sender">${!isMe ? senderName : "You"}</span>
+                  ${canDeleteThis ? `<button class="msg-del-btn" onclick="deleteMessage('${m.id}')">Delete</button>` : ""}
+                </div>
+                ${mediaHtml}
+                ${m.text ? `<div>${escapeHtml(m.text)}</div>` : ""}
+                <div class="msg-time">${time}</div>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        box.scrollTop = box.scrollHeight;
+      });
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    window.deleteMessage = async (msgId) => {
+      await deleteDoc(doc(db, "tg_rooms", activeRoomId, "messages", msgId));
+    };
+
+    window.sendMessage = async (e) => {
+      e.preventDefault();
+      const room = rooms.find(r => r.id === activeRoomId) || rooms[0];
+      if (!canPostInRoom(room)) return alert("You cannot post in this room.");
+
+      const input = document.getElementById("msgInput");
+      const text = input.value.trim();
+      if (!text) return;
+
+      input.value = "";
+      await addDoc(collection(db, "tg_rooms", activeRoomId, "messages"), {
+        text,
+        senderName: currentProfile.name || "Guest",
+        senderDp: currentProfile.dp || "",
+        senderUid: currentProfile.uid || "guest",
+        senderEmail: currentProfile.email || "",
+        createdAt: Date.now()
+      });
+
+      const matchedBot = customBots.find(b => text.toLowerCase().startsWith(b.trigger.toLowerCase()));
+      if (matchedBot) {
+        await addDoc(collection(db, "tg_rooms", activeRoomId, "messages"), {
+          text: `🤖 [${matchedBot.name}]: ${matchedBot.reply}`,
+          senderName: `${matchedBot.name} (Bot)`,
+          senderDp: "",
+          senderUid: "bot",
+          senderEmail: currentProfile.email || "",
+          createdAt: Date.now() + 1
+        });
+      }
+    };
+
+    window.sendMediaFile = async () => {
+      const room = rooms.find(r => r.id === activeRoomId) || rooms[0];
+      if (!canPostInRoom(room)) return alert("You cannot post in this room.");
+
+      const fileInput = document.getElementById("mediaInput");
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const banner = document.getElementById("uploadBanner");
+      banner.style.display = "block";
+      const isVideo = file.type.startsWith("video/");
+      const resourceType = isVideo ? "video" : "image";
+
+      try {
+        const mediaUrl = await uploadToCloudinary(file, resourceType);
+        await addDoc(collection(db, "tg_rooms", activeRoomId, "messages"), {
+          text: "",
+          mediaUrl,
+          mediaType: resourceType,
+          senderName: currentProfile.name || "Guest",
+          senderDp: currentProfile.dp || "",
+          senderUid: currentProfile.uid || "guest",
+          senderEmail: currentProfile.email || "",
+          createdAt: Date.now()
+        });
+      } catch (err) {
+        alert("Upload failed: " + err.message);
+      } finally {
+        banner.style.display = "none";
+        fileInput.value = "";
+      }
+    };
+
+    updateFooterUI();
+    selectRoom("general", true);
+  </script>
+</body>
+</html>
